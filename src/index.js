@@ -92,15 +92,6 @@ class HueSync {
   stream () {
     this.createLightingBuffer()
 
-    // setInterval(() => {
-    //   if (Math.random() < 0.3) {
-    //     const colors = [COLORS.a, COLORS.a, COLORS.a, COLORS.b, COLORS.b, COLORS.b, COLORS.ab].filter(c => c !== this.lastColor)
-    //
-    //     this.lastColor = colors[Math.floor(Math.random() * colors.length)]
-    //     this.createLightingBuffer()
-    //   }
-    // }, 200)
-
     this.interval = setInterval(() => {
       if (this.fading) {
         this.currentBrightness = Math.max(0, this.currentBrightness - 5)
