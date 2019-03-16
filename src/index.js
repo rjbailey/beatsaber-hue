@@ -7,8 +7,8 @@ const semver = require('semver')
 const WebSocket = require('ws')
 
 const COLORS = {
-  a: '255,0,0',
-  b: '0,0,255',
+  a: '179,4,4',
+  b: '4,150,215',
   idle: '255,255,255',
   idleDark: '0,0,0'
 }
