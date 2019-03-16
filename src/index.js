@@ -10,11 +10,28 @@ class HueSync {
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
     this.auth = null
+    this.lightingBuffer = null
     this.config = null
     this.dtlsSocket = null
     this.interval = null
     this.groupId = null
     this.state = null
+  }
+
+  async start () {
+    if (!await this.setupHue()) {
+      return
+    }
+
+    try {
+      await this.setupDtlsSocket()
+    } catch (e) {
+      console.log('error', e)
+
+      return
+    }
+
+    this.stream()
   }
 
   async stop () {
@@ -40,23 +57,11 @@ class HueSync {
     }
   }
 
-  async start () {
-    if (!await this.setupHue()) {
-      return
-    }
-
-    try {
-      await this.setupDtlsSocket()
-    } catch (e) {
-      console.log('error', e)
-
-      return
-    }
-
-    const msg = this.createLightingBuffer()
+  stream () {
+    this.createLightingBuffer()
 
     this.interval = setInterval(() => {
-      this.dtlsSocket.send(msg)
+      this.dtlsSocket.send(this.lightingBuffer)
     }, 20)
   }
 
