@@ -1,21 +1,42 @@
 require('dotenv').config()
 const {dtls} = require('node-dtls-client')
 const fs = require('fs')
-const hexToBinary = require('hex-to-binary')
+const rgbToXy = require('./helpers/rgbToXy')
 const rp = require('request-promise')
 const semver = require('semver')
+
+const COLORS = {
+  a: '255,0,0',
+  b: '0,0,255',
+  ab: '205,3,219'
+}
 
 class HueSync {
   constructor () {
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
     this.auth = null
+    this.lastColor = COLORS.a
     this.lightingBuffer = null
     this.config = null
     this.dtlsSocket = null
     this.interval = null
     this.groupId = null
     this.state = null
+
+    Object.keys(COLORS).forEach(key => {
+      const envKey = `COLOR_${key.toUpperCase()}`
+
+      if (process.env[envKey]) {
+        if (!/^\d{1,3},\d{1,3},\d{1,3}$/.test(process.env[envKey])) {
+          console.error(`Invalid color format for ${envKey}`)
+
+          return
+        }
+
+        COLORS[key] = process.env[envKey]
+      }
+    })
   }
 
   async start () {
@@ -59,6 +80,15 @@ class HueSync {
 
   stream () {
     this.createLightingBuffer()
+
+    setInterval(() => {
+      if (Math.random() < 0.3) {
+        const colors = [COLORS.a, COLORS.a, COLORS.a, COLORS.b, COLORS.b, COLORS.b, COLORS.ab].filter(c => c !== this.lastColor)
+
+        this.lastColor = colors[Math.floor(Math.random() * colors.length)]
+        this.createLightingBuffer()
+      }
+    }, 200)
 
     this.interval = setInterval(() => {
       this.dtlsSocket.send(this.lightingBuffer)
@@ -188,16 +218,16 @@ class HueSync {
 
     this.state.groups[this.groupId].lights.forEach(light => {
       const lightId = light.padStart(2, '0').split('')
+      const color = rgbToXy(...(this.lastColor.split(',') || [255, 255, 255]))
+      const brightness = this.state.lights[light].state.bri
 
       lights.push(Buffer.from([
         0x00, lightId[0], lightId[1],
-        0xff, 0xff, 0x00, 0x00, 0x00, 0x00 // red
-        // 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, // blue
-        // 0x0c, 0x0d, 0x00, 0x03, 0x0d, 0x0b, // purple
+        color.x.xOne, color.x.xTwo, color.y.yOne, color.y.yTwo, brightness, brightness,
       ]))
     })
 
-    return Buffer.concat([
+    this.lightingBuffer = Buffer.concat([
       Buffer.from('HueStream', 'ascii'),
       Buffer.from([
         // Version
@@ -206,8 +236,8 @@ class HueSync {
         0x00,
         // Reserved
         0x00, 0x00,
-        // Color space
-        0x00,
+        // Color mode
+        0x01,
         // Reserved
         0x00
       ]),
