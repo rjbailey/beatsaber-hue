@@ -4,11 +4,14 @@ const fs = require('fs')
 const rgbToXy = require('./helpers/rgbToXy')
 const rp = require('request-promise')
 const semver = require('semver')
+const WebSocket = require('ws')
 
 const COLORS = {
   a: '255,0,0',
   b: '0,0,255',
-  ab: '205,3,219'
+  ab: '205,3,219',
+  idle: '255,255,255',
+  idleDark: '0,0,0'
 }
 
 class HueSync {
@@ -16,7 +19,7 @@ class HueSync {
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
     this.auth = null
-    this.lastColor = COLORS.a
+    this.lastColor = COLORS.idle
     this.lightingBuffer = null
     this.config = null
     this.dtlsSocket = null
@@ -52,6 +55,8 @@ class HueSync {
       return
     }
 
+    await this.setupWebSocket()
+
     this.stream()
   }
 
@@ -81,14 +86,14 @@ class HueSync {
   stream () {
     this.createLightingBuffer()
 
-    setInterval(() => {
-      if (Math.random() < 0.3) {
-        const colors = [COLORS.a, COLORS.a, COLORS.a, COLORS.b, COLORS.b, COLORS.b, COLORS.ab].filter(c => c !== this.lastColor)
-
-        this.lastColor = colors[Math.floor(Math.random() * colors.length)]
-        this.createLightingBuffer()
-      }
-    }, 200)
+    // setInterval(() => {
+    //   if (Math.random() < 0.3) {
+    //     const colors = [COLORS.a, COLORS.a, COLORS.a, COLORS.b, COLORS.b, COLORS.b, COLORS.ab].filter(c => c !== this.lastColor)
+    //
+    //     this.lastColor = colors[Math.floor(Math.random() * colors.length)]
+    //     this.createLightingBuffer()
+    //   }
+    // }, 200)
 
     this.interval = setInterval(() => {
       this.dtlsSocket.send(this.lightingBuffer)
@@ -173,6 +178,51 @@ class HueSync {
     })
   }
 
+  async setupWebSocket () {
+    const ws = new WebSocket(process.env.SOCKET_URI)
+
+    ws.onmessage = data => {
+      data = JSON.parse(data.data)
+
+      switch (data.event) {
+        case 'hello':
+          this.lastColor = COLORS.idle
+          this.createLightingBuffer()
+          console.log('Connected to Beat Saber!')
+          break
+        case 'songStart':
+          this.lastColor = COLORS.idleDark
+          this.createLightingBuffer()
+          break
+        case 'noteCut':
+          if (
+            (data.noteCut.noteType === 'NoteA' || data.noteCut.noteType === 'NoteB') &&
+            data.noteCut.speedOK &&
+            data.noteCut.directionOK &&
+            data.noteCut.saberTypeOK &&
+            !data.noteCut.wasCutTooSoon
+          ) {
+            this.lastColor = data.noteCut.noteType === 'NoteA' ? COLORS.a : COLORS.b
+            this.createLightingBuffer()
+          }
+          console.log('A note has been cut', data)
+          break
+        case 'finished':
+          this.lastColor = COLORS.idle
+          this.createLightingBuffer()
+          break
+        case 'pause':
+          this.lastColor = COLORS.idle
+          this.createLightingBuffer()
+          break
+        case 'resume':
+          this.lastColor = COLORS.idleDark
+          this.createLightingBuffer()
+          break
+      }
+    }
+  }
+
   async authenticate () {
     let auth = JSON.parse(fs.readFileSync('auth.json'))
 
@@ -218,12 +268,12 @@ class HueSync {
 
     this.state.groups[this.groupId].lights.forEach(light => {
       const lightId = light.padStart(2, '0').split('')
-      const color = rgbToXy(...(this.lastColor.split(',') || [255, 255, 255]))
+      const color = rgbToXy(...this.lastColor.split(','))
       const brightness = this.state.lights[light].state.bri
 
       lights.push(Buffer.from([
         0x00, lightId[0], lightId[1],
-        color.x.xOne, color.x.xTwo, color.y.yOne, color.y.yTwo, brightness, brightness,
+        color.x.xOne, color.x.xTwo, color.y.yOne, color.y.yTwo, brightness, brightness
       ]))
     })
 
