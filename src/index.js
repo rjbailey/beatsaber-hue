@@ -9,7 +9,6 @@ const WebSocket = require('ws')
 const COLORS = {
   a: '255,0,0',
   b: '0,0,255',
-  ab: '205,3,219',
   idle: '255,255,255',
   idleDark: '0,0,0'
 }
@@ -250,20 +249,24 @@ class HueSync {
   }
 
   async authenticate () {
-    let auth = JSON.parse(fs.readFileSync('auth.json'))
+    try {
+      let auth = JSON.parse(fs.readFileSync('auth.json'))
 
-    if (auth && auth.username) {
-      const res = await rp({
-        uri: `${this.bridgeUri}/api/${auth.username}`,
-        json: true
-      })
+      if (auth && auth.username) {
+        const res = await rp({
+          uri: `${this.bridgeUri}/api/${auth.username}`,
+          json: true
+        })
 
-      if (typeof res.groups !== 'undefined') {
-        this.auth = auth
-        this.state = res
+        if (typeof res.groups !== 'undefined') {
+          this.auth = auth
+          this.state = res
 
-        return
+          return
+        }
       }
+    } catch (e) {
+
     }
 
     const res = await rp({
