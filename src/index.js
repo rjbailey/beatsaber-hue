@@ -19,13 +19,18 @@ class HueSync {
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
     this.auth = null
-    this.lastColor = COLORS.idle
     this.lightingBuffer = null
     this.config = null
     this.dtlsSocket = null
     this.interval = null
     this.groupId = null
     this.state = null
+    this.mode = process.env.MODE || 'notes'
+
+    if (['notes', 'lighting'].indexOf(this.mode) === -1) {
+      console.error('Invalid mode set, falling back to default')
+      this.mode = 'notes'
+    }
 
     Object.keys(COLORS).forEach(key => {
       const envKey = `COLOR_${key.toUpperCase()}`
@@ -186,38 +191,59 @@ class HueSync {
 
       switch (data.event) {
         case 'hello':
-          this.lastColor = COLORS.idle
-          this.createLightingBuffer()
+          this.createLightingBuffer(COLORS.idle)
           console.log('Connected to Beat Saber!')
           break
         case 'songStart':
-          this.lastColor = COLORS.idleDark
-          this.createLightingBuffer()
+          this.createLightingBuffer(COLORS.idleDark)
           break
         case 'noteCut':
           if (
+            this.mode === 'notes' &&
             (data.noteCut.noteType === 'NoteA' || data.noteCut.noteType === 'NoteB') &&
             data.noteCut.speedOK &&
             data.noteCut.directionOK &&
             data.noteCut.saberTypeOK &&
             !data.noteCut.wasCutTooSoon
           ) {
-            this.lastColor = data.noteCut.noteType === 'NoteA' ? COLORS.a : COLORS.b
-            this.createLightingBuffer()
+            this.createLightingBuffer(data.noteCut.noteType === 'NoteA' ? COLORS.a : COLORS.b)
           }
           console.log('A note has been cut', data)
           break
+        case 'beatmapEvent':
+          if (
+            this.mode === 'lighting' &&
+            data.beatmapEvent.type < 5
+          ) {
+            switch (data.beatmapEvent.value) {
+              case 0:
+                this.createLightingBuffer(COLORS.idleDark)
+                break;
+              case 1:
+              case 2:
+                this.createLightingBuffer(COLORS.b)
+                break
+              case 3: // TODO fade out
+                this.createLightingBuffer(COLORS.b)
+                break
+              case 5:
+              case 6:
+                this.createLightingBuffer(COLORS.a)
+                break
+              case 7: // TODO fade out
+                this.createLightingBuffer(COLORS.a)
+                break
+            }
+          }
+          break
         case 'finished':
-          this.lastColor = COLORS.idle
-          this.createLightingBuffer()
+          this.createLightingBuffer(COLORS.idle)
           break
         case 'pause':
-          this.lastColor = COLORS.idle
-          this.createLightingBuffer()
+          this.createLightingBuffer(COLORS.idle)
           break
         case 'resume':
-          this.lastColor = COLORS.idleDark
-          this.createLightingBuffer()
+          this.createLightingBuffer(COLORS.idleDark)
           break
       }
     }
@@ -263,17 +289,23 @@ class HueSync {
     fs.writeFileSync('auth.json', JSON.stringify(res[0].success))
   }
 
-  createLightingBuffer () {
+  createLightingBuffer (color) {
     const lights = []
+
+    color = color || COLORS.idle
 
     this.state.groups[this.groupId].lights.forEach(light => {
       const lightId = light.padStart(2, '0').split('')
-      const color = rgbToXy(...this.lastColor.split(','))
-      const brightness = this.state.lights[light].state.bri
+      const colorXy = rgbToXy(...(color.split(',')))
+      let brightness = process.env.BRIGHTNESS || 255
+
+      if (color === COLORS.idleDark) {
+        brightness = 0
+      }
 
       lights.push(Buffer.from([
         0x00, lightId[0], lightId[1],
-        color.x.xOne, color.x.xTwo, color.y.yOne, color.y.yTwo, brightness, brightness
+        colorXy.x.xOne, colorXy.x.xTwo, colorXy.y.yOne, colorXy.y.yTwo, brightness, brightness
       ]))
     })
 
