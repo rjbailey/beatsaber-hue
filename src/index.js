@@ -18,11 +18,13 @@ class HueSync {
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
     this.auth = null
-    this.lightingBuffer = null
     this.config = null
+    this.currentBrightness = null
     this.dtlsSocket = null
-    this.interval = null
+    this.fading = false
     this.groupId = null
+    this.interval = null
+    this.lightingBuffer = null
     this.state = null
     this.mode = process.env.MODE || 'notes'
 
@@ -100,7 +102,32 @@ class HueSync {
     // }, 200)
 
     this.interval = setInterval(() => {
-      this.dtlsSocket.send(this.lightingBuffer)
+      if (this.fading) {
+        this.currentBrightness = Math.max(0, this.currentBrightness - 5)
+      }
+
+      let brightness = this.currentBrightness
+
+      const buffer = Buffer.concat([
+        Buffer.from('HueStream', 'ascii'),
+        Buffer.from([
+          // Version
+          0x01, 0x00,
+          // Sequence ID
+          0x00,
+          // Reserved
+          0x00, 0x00,
+          // Color mode
+          0x01,
+          // Reserved
+          0x00
+        ]),
+        ...(this.lightingBuffer.map(a => {
+          return Buffer.from(a.map(b => b === 'bri' ? brightness : b))
+        }))
+      ])
+
+      this.dtlsSocket.send(buffer)
     }, 20)
   }
 
@@ -212,7 +239,7 @@ class HueSync {
         case 'beatmapEvent':
           if (
             this.mode === 'lighting' &&
-            [0, 1, 4].indexOf(data.beatmapEvent.type) !== -1
+            [0, 1, 2, 3, 4].indexOf(data.beatmapEvent.type) !== -1
           ) {
             switch (data.beatmapEvent.value) {
               case 0:
@@ -222,15 +249,15 @@ class HueSync {
               case 2:
                 this.createLightingBuffer(COLORS.b)
                 break
-              case 3: // TODO fade out
-                this.createLightingBuffer(COLORS.b)
+              case 3:
+                this.createLightingBuffer(COLORS.b, true)
                 break
               case 5:
               case 6:
                 this.createLightingBuffer(COLORS.a)
                 break
-              case 7: // TODO fade out
-                this.createLightingBuffer(COLORS.a)
+              case 7:
+                this.createLightingBuffer(COLORS.a, true)
                 break
             }
           }
@@ -292,7 +319,7 @@ class HueSync {
     fs.writeFileSync('auth.json', JSON.stringify(res[0].success))
   }
 
-  createLightingBuffer (color) {
+  createLightingBuffer (color, fade = false) {
     const lights = []
 
     color = color || COLORS.idle
@@ -300,34 +327,22 @@ class HueSync {
     this.state.groups[this.groupId].lights.forEach(light => {
       const lightId = light.padStart(2, '0').split('')
       const colorXy = rgbToXy(...(color.split(',')))
-      let brightness = process.env.BRIGHTNESS || 255
 
-      if (color === COLORS.idleDark) {
-        brightness = 0
-      }
-
-      lights.push(Buffer.from([
+      lights.push([
         0x00, lightId[0], lightId[1],
-        colorXy.x.xOne, colorXy.x.xTwo, colorXy.y.yOne, colorXy.y.yTwo, brightness, brightness
-      ]))
+        colorXy.x.xOne, colorXy.x.xTwo, colorXy.y.yOne, colorXy.y.yTwo, 'bri', 'bri'
+      ])
     })
 
-    this.lightingBuffer = Buffer.concat([
-      Buffer.from('HueStream', 'ascii'),
-      Buffer.from([
-        // Version
-        0x01, 0x00,
-        // Sequence ID
-        0x00,
-        // Reserved
-        0x00, 0x00,
-        // Color mode
-        0x01,
-        // Reserved
-        0x00
-      ]),
-      ...lights
-    ])
+    let brightness = process.env.BRIGHTNESS || 255
+
+    if (color === COLORS.idleDark) {
+      brightness = 0
+    }
+
+    this.currentBrightness = brightness
+    this.fading = fade
+    this.lightingBuffer = lights
   }
 
   responseIsError (res) {
