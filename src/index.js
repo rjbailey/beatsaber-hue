@@ -212,7 +212,7 @@ class HueSync {
         case 'beatmapEvent':
           if (
             this.mode === 'lighting' &&
-            data.beatmapEvent.type < 5
+            [0, 1, 4].indexOf(data.beatmapEvent.type) !== -1
           ) {
             switch (data.beatmapEvent.value) {
               case 0:
