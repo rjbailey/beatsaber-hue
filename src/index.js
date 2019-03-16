@@ -26,11 +26,11 @@ class HueSync {
     this.interval = null
     this.lightingBuffer = null
     this.state = null
-    this.mode = process.env.MODE || 'notes'
+    this.mode = process.env.MODE || 'lighting'
 
     if (['notes', 'lighting'].indexOf(this.mode) === -1) {
       console.error('Invalid mode set, falling back to default')
-      this.mode = 'notes'
+      this.mode = 'lighting'
     }
 
     Object.keys(COLORS).forEach(key => {
