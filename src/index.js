@@ -23,10 +23,10 @@ class HueSync {
     this.dtlsSocket = null
     this.fading = false
     this.groupId = null
+    this.groups = null
     this.interval = null
     this.lightingBuffer = null
     this.mode = process.env.MODE || 'lighting'
-    this.state = null
 
     if (['notes', 'lighting'].indexOf(this.mode) === -1) {
       console.error('Invalid mode set, falling back to default')
@@ -119,15 +119,15 @@ class HueSync {
       return false
     }
 
-    this.groupId = Object.keys(this.state.groups).find(
-      key => this.state.groups[key].type === 'Entertainment' &&
-        this.state.groups[key].name === process.env.GROUP_NAME
+    this.groupId = Object.keys(this.groups).find(
+      key => this.groups[key].type === 'Entertainment' &&
+        this.groups[key].name === process.env.GROUP_NAME
     )
 
     if (!this.groupId) {
       console.error(
         `Unable to find entertainment group with name "${process.env.GROUP_NAME}", available options are:`,
-        Object.values(this.state.groups).filter(group => group.type === 'Entertainment').reduce((a, b) => {
+        Object.values(this.groups).filter(group => group.type === 'Entertainment').reduce((a, b) => {
           return `${a}\n${b.name}`
         }, '')
       )
@@ -249,13 +249,13 @@ class HueSync {
 
       if (auth && auth.username) {
         const res = await rp({
-          uri: `${this.bridgeUri}/api/${auth.username}`,
+          uri: `${this.bridgeUri}/api/${auth.username}/groups`,
           json: true
         })
 
-        if (typeof res.groups !== 'undefined') {
+        if (!this.responseIsError(res)) {
           this.auth = auth
-          this.state = res
+          this.groups = res
 
           return
         }
@@ -315,7 +315,7 @@ class HueSync {
 
     color = color || COLORS.idle
 
-    this.state.groups[this.groupId].lights.forEach(light => {
+    this.groups[this.groupId].lights.forEach(light => {
       const lightId = light.padStart(2, '0').split('')
       const colorXy = rgbToXy(...(color.split(',')))
 
