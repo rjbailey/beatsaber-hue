@@ -50,6 +50,9 @@ COLOR_A=255,0,0
 # Replaces the blue colour. Use a RGB value in the same format as below
 COLOR_B=0,0,255
 
+# Replaces the purple colour used for KDA's POP/STARS. Use a RGB value in the same format as below
+COLOR_KDA=139,9,153
+
 # Replaces the white colour used in menus. Use a RGB value in the same format as below
 COLOR_IDLE=255,255,255
 

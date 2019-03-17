@@ -10,6 +10,7 @@ const WebSocket = require('ws')
 const COLORS = {
   a: '179,4,4',
   b: '4,150,215',
+  kda: '139,9,153',
   idle: '255,255,255',
   idleDark: '0,0,0'
 }
@@ -21,6 +22,7 @@ class HueSync {
     this.bridgeUri = `http://${this.bridgeIp}`
     this.config = null
     this.dtlsSocket = null
+    this.currentEnvironment = null
     this.groupId = null
     this.groups = null
     this.interval = null
@@ -205,6 +207,7 @@ class HueSync {
           console.log('Connected to Beat Saber!')
           break
         case 'songStart':
+          this.currentEnvironment = data.status.beatmap.environmentName
           this.createLightingBuffer(COLORS.idleDark)
           break
         case 'noteCut':
@@ -254,10 +257,10 @@ class HueSync {
                 break
               case 1:
               case 2:
-                this.createLightingBuffer(COLORS.b, zones)
+                this.createLightingBuffer(this.currentEnvironment === 'KDAEnvironment' ? COLORS.kda : COLORS.b, zones)
                 break
               case 3:
-                this.createLightingBuffer(COLORS.b, zones, true)
+                this.createLightingBuffer(this.currentEnvironment === 'KDAEnvironment' ? COLORS.kda : COLORS.b, zones, true)
                 break
               case 5:
               case 6:
