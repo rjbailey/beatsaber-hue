@@ -56,3 +56,23 @@ COLOR_IDLE=255,255,255
 # Replaces the black colour used in game when you first start a song. Use a RGB value in the same format as below
 COLOR_IDLEDARK=0,0,0
 ```
+
+## Hue Entertainment Area
+
+When using `lighting` mode, set up your entertainment area using the setups below to provide the best experience. Each zone reacts to different light sources in-game, so the more lights you have, the better it will be!
+
+### 1 Light Setup
+
+If you only have 1 light in your entertainment area, it doesn't matter where you place it in the room, it will always be treated as a center light
+
+### 2-3 Light Setup
+
+If you have 2 or 3 lights in your entertainment area, we split the room up into 3 sections; left, center and right as shown in the below image. Place your lights in the zones you want them to use
+
+![2-3 light setup zones](https://raw.githubusercontent.com/Jared0430/beatsaber-hue/master/3-lights.png)
+
+### 4+ Light Setup
+
+If you have lots of money and have yourself 4+ lights in your entertainment group, we split the room up into 6 sections as shown below. This is the ultimate lighting setup
+
+![4+ light setup zones](https://raw.githubusercontent.com/Jared0430/beatsaber-hue/master/more-lights.png)

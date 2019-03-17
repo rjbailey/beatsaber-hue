@@ -1,6 +1,7 @@
 require('dotenv').config()
 const {dtls} = require('node-dtls-client')
 const fs = require('fs')
+const {lightZone, lightInZones} = require('./helpers/lightZones')
 const rgbToXy = require('./helpers/rgbToXy')
 const rp = require('request-promise')
 const semver = require('semver')
@@ -19,13 +20,11 @@ class HueSync {
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
     this.config = null
-    this.currentBrightness = null
     this.dtlsSocket = null
-    this.fading = false
     this.groupId = null
     this.groups = null
     this.interval = null
-    this.lightingBuffer = null
+    this.lights = null
     this.mode = process.env.MODE || 'lighting'
 
     if (['notes', 'lighting'].indexOf(this.mode) === -1) {
@@ -67,14 +66,20 @@ class HueSync {
   }
 
   stream () {
-    this.createLightingBuffer()
+    this.createLightingBuffer(COLORS.idle)
 
     this.interval = setInterval(() => {
-      if (this.fading) {
-        this.currentBrightness = Math.max(0, this.currentBrightness - 5)
-      }
+      const lightingBuffer = Object.values(this.lights).map(light => {
+        if (light.fading) {
+          light.brightness = Math.max(0, light.brightness - 5)
 
-      let brightness = this.currentBrightness
+          if (light.brightness <= 0) {
+            light.fading = false
+          }
+        }
+
+        return Buffer.from(light.buffer.map(b => b === 'bri' ? light.brightness : b))
+      })
 
       const buffer = Buffer.concat([
         Buffer.from('HueStream', 'ascii'),
@@ -90,9 +95,7 @@ class HueSync {
           // Reserved
           0x00
         ]),
-        ...(this.lightingBuffer.map(a => {
-          return Buffer.from(a.map(b => b === 'bri' ? brightness : b))
-        }))
+        ...lightingBuffer
       ])
 
       this.dtlsSocket.send(buffer)
@@ -134,6 +137,19 @@ class HueSync {
 
       return false
     }
+
+    const lights = {}
+
+    this.groups[this.groupId].lights.forEach(lightId => {
+      lights[lightId] = {
+        brightness: null,
+        buffer: null,
+        fading: false,
+        zone: lightZone(this.groups[this.groupId].locations[lightId])
+      }
+    })
+
+    this.lights = lights
 
     const startStream = await rp({
       uri: `${this.bridgeUri}/api/${this.auth.username}/groups/${this.groupId}`,
@@ -209,23 +225,46 @@ class HueSync {
             this.mode === 'lighting' &&
             [0, 1, 2, 3, 4].indexOf(data.beatmapEvent.type) !== -1
           ) {
+            const zones = []
+
+            switch (data.beatmapEvent.type) {
+              case 0:
+                zones.push('center-front')
+                break
+              case 1:
+                zones.push('left-front')
+                zones.push('right-front')
+                break
+              case 2:
+                zones.push('left-back')
+                break
+              case 3:
+                zones.push('right-back')
+                break
+              case 4:
+                zones.push('left-front')
+                zones.push('right-front')
+                zones.push('center-back')
+                break
+            }
+
             switch (data.beatmapEvent.value) {
               case 0:
-                this.createLightingBuffer(COLORS.idleDark)
+                this.createLightingBuffer(COLORS.idleDark, zones)
                 break
               case 1:
               case 2:
-                this.createLightingBuffer(COLORS.b)
+                this.createLightingBuffer(COLORS.b, zones)
                 break
               case 3:
-                this.createLightingBuffer(COLORS.b, true)
+                this.createLightingBuffer(COLORS.b, zones, true)
                 break
               case 5:
               case 6:
-                this.createLightingBuffer(COLORS.a)
+                this.createLightingBuffer(COLORS.a, zones)
                 break
               case 7:
-                this.createLightingBuffer(COLORS.a, true)
+                this.createLightingBuffer(COLORS.a, zones, true)
                 break
             }
           }
@@ -310,30 +349,22 @@ class HueSync {
     }
   }
 
-  createLightingBuffer (color, fade = false) {
-    const lights = []
+  createLightingBuffer (color, zones = [], fade = false) {
+    const colorXy = rgbToXy(...(color.split(',')))
+    const brightness = color === COLORS.idleDark ? 0 : (process.env.BRIGHTNESS || 255)
 
-    color = color || COLORS.idle
+    Object.keys(this.lights).forEach(lightId => {
+      if (lightInZones(this.lights[lightId].zone, zones, this.lights.length)) {
+        const lightBufferId = lightId.padStart(2, '0').split('')
 
-    this.groups[this.groupId].lights.forEach(light => {
-      const lightId = light.padStart(2, '0').split('')
-      const colorXy = rgbToXy(...(color.split(',')))
-
-      lights.push([
-        0x00, lightId[0], lightId[1],
-        colorXy.x.xOne, colorXy.x.xTwo, colorXy.y.yOne, colorXy.y.yTwo, 'bri', 'bri'
-      ])
+        this.lights[lightId].brightness = brightness
+        this.lights[lightId].fading = fade
+        this.lights[lightId].buffer = [
+          0x00, lightBufferId[0], lightBufferId[1],
+          colorXy.x.xOne, colorXy.x.xTwo, colorXy.y.yOne, colorXy.y.yTwo, 'bri', 'bri'
+        ]
+      }
     })
-
-    let brightness = process.env.BRIGHTNESS || 255
-
-    if (color === COLORS.idleDark) {
-      brightness = 0
-    }
-
-    this.currentBrightness = brightness
-    this.fading = fade
-    this.lightingBuffer = lights
   }
 
   responseIsError (res) {
