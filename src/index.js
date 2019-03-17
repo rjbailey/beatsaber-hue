@@ -15,9 +15,9 @@ const COLORS = {
 
 class HueSync {
   constructor () {
+    this.auth = null
     this.bridgeIp = process.env.BRIDGE_IP
     this.bridgeUri = `http://${this.bridgeIp}`
-    this.auth = null
     this.config = null
     this.currentBrightness = null
     this.dtlsSocket = null
@@ -25,8 +25,8 @@ class HueSync {
     this.groupId = null
     this.interval = null
     this.lightingBuffer = null
-    this.state = null
     this.mode = process.env.MODE || 'lighting'
+    this.state = null
 
     if (['notes', 'lighting'].indexOf(this.mode) === -1) {
       console.error('Invalid mode set, falling back to default')
@@ -64,29 +64,6 @@ class HueSync {
     await this.setupWebSocket()
 
     this.stream()
-  }
-
-  async stop () {
-    if (this.interval) {
-      clearInterval(this.interval)
-    }
-
-    if (this.groupId) {
-      await rp({
-        uri: `${this.bridgeUri}/api/${this.auth.username}/groups/${this.groupId}`,
-        method: 'PUT',
-        json: true,
-        body: {
-          stream: {
-            active: false
-          }
-        }
-      })
-    }
-
-    if (this.dtlsSocket) {
-      this.dtlsSocket.close()
-    }
   }
 
   stream () {
@@ -235,7 +212,7 @@ class HueSync {
             switch (data.beatmapEvent.value) {
               case 0:
                 this.createLightingBuffer(COLORS.idleDark)
-                break;
+                break
               case 1:
               case 2:
                 this.createLightingBuffer(COLORS.b)
@@ -308,6 +285,29 @@ class HueSync {
     }
 
     fs.writeFileSync('auth.json', JSON.stringify(res[0].success))
+  }
+
+  async stop () {
+    if (this.interval) {
+      clearInterval(this.interval)
+    }
+
+    if (this.groupId) {
+      await rp({
+        uri: `${this.bridgeUri}/api/${this.auth.username}/groups/${this.groupId}`,
+        method: 'PUT',
+        json: true,
+        body: {
+          stream: {
+            active: false
+          }
+        }
+      })
+    }
+
+    if (this.dtlsSocket) {
+      this.dtlsSocket.close()
+    }
   }
 
   createLightingBuffer (color, fade = false) {
