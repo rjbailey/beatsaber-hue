@@ -26,6 +26,7 @@ class HueSync {
     this.groupId = null
     this.groups = null
     this.interval = null
+    this.latestLightingValues = {}
     this.lights = null
     this.mode = process.env.MODE || 'lighting'
 
@@ -228,46 +229,28 @@ class HueSync {
             this.mode === 'lighting' &&
             [0, 1, 2, 3, 4].indexOf(data.beatmapEvent.type) !== -1
           ) {
-            const zones = []
+            this.latestLightingValues[data.beatmapEvent.type] = data.beatmapEvent.value
 
-            switch (data.beatmapEvent.type) {
-              case 0:
-                zones.push('center-front')
-                break
-              case 1:
-                zones.push('left-back')
-                zones.push('right-back')
-                break
-              case 2:
-                zones.push('left-front')
-                break
-              case 3:
-                zones.push('right-front')
-                break
-              case 4:
-                zones.push('left-back')
-                zones.push('right-back')
-                zones.push('center-front')
-                break
-            }
+            const zones = this.zonesFromLightingType(data.beatmapEvent.type)
+            const color = this.colorFromLightingValue(data.beatmapEvent.value)
 
             switch (data.beatmapEvent.value) {
               case 0:
-                this.createLightingBuffer(COLORS.idleDark, zones)
+                this.createLightingBuffer(color, zones, false, data.beatmapEvent.type === 4)
                 break
               case 1:
               case 2:
-                this.createLightingBuffer(this.currentEnvironment === 'KDAEnvironment' ? COLORS.kda : COLORS.b, zones)
+                this.createLightingBuffer(color, zones)
                 break
               case 3:
-                this.createLightingBuffer(this.currentEnvironment === 'KDAEnvironment' ? COLORS.kda : COLORS.b, zones, true)
+                this.createLightingBuffer(color, zones, true, data.beatmapEvent.type === 4)
                 break
               case 5:
               case 6:
-                this.createLightingBuffer(COLORS.a, zones)
+                this.createLightingBuffer(color, zones)
                 break
               case 7:
-                this.createLightingBuffer(COLORS.a, zones, true)
+                this.createLightingBuffer(color, zones, true, data.beatmapEvent.type === 4)
                 break
             }
           }
@@ -352,7 +335,33 @@ class HueSync {
     }
   }
 
-  createLightingBuffer (color, zones = [], fade = false) {
+  createLightingBuffer (color, zones = [], fade = false, temp = false) {
+    if (temp && !fade) {
+      if (!fade) {
+        this.createLightingBuffer(
+          this.colorFromLightingValue(
+            [3, 7].indexOf(this.latestLightingValues[0]) === -1
+              ? this.latestLightingValues[0]
+              : 0
+          ),
+          this.zonesFromLightingType(0)
+        )
+
+        this.createLightingBuffer(
+          this.colorFromLightingValue(
+            [3, 7].indexOf(this.latestLightingValues[1]) === -1
+              ? this.latestLightingValues[1]
+              : 0
+          ),
+          this.zonesFromLightingType(1)
+        )
+
+        return
+      }
+
+      // TODO figure out some way of handling cross-fades
+    }
+
     const colorXy = rgbToXy(...(color.split(',')))
     const brightness = color === COLORS.idleDark ? 0 : (process.env.BRIGHTNESS || 255)
 
@@ -368,6 +377,48 @@ class HueSync {
         ]
       }
     })
+  }
+
+  zonesFromLightingType (type) {
+    const zones = []
+
+    switch (type) {
+      case 0:
+        zones.push('center-front')
+        break
+      case 1:
+        zones.push('left-back')
+        zones.push('right-back')
+        break
+      case 2:
+        zones.push('left-front')
+        break
+      case 3:
+        zones.push('right-front')
+        break
+      case 4:
+        zones.push('left-back')
+        zones.push('right-back')
+        zones.push('center-front')
+        break
+    }
+
+    return zones
+  }
+
+  colorFromLightingValue (value) {
+    switch (value) {
+      case 1:
+      case 2:
+      case 3:
+        return this.currentEnvironment === 'KDAEnvironment' ? COLORS.kda : COLORS.b
+      case 5:
+      case 6:
+      case 7:
+        return COLORS.a
+    }
+
+    return COLORS.idleDark
   }
 
   responseIsError (res) {
