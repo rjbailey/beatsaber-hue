@@ -235,19 +235,19 @@ class HueSync {
                 zones.push('center-front')
                 break
               case 1:
-                zones.push('left-front')
-                zones.push('right-front')
-                break
-              case 2:
                 zones.push('left-back')
-                break
-              case 3:
                 zones.push('right-back')
                 break
-              case 4:
+              case 2:
                 zones.push('left-front')
+                break
+              case 3:
                 zones.push('right-front')
-                zones.push('center-back')
+                break
+              case 4:
+                zones.push('left-back')
+                zones.push('right-back')
+                zones.push('center-front')
                 break
             }
 
@@ -357,7 +357,7 @@ class HueSync {
     const brightness = color === COLORS.idleDark ? 0 : (process.env.BRIGHTNESS || 255)
 
     Object.keys(this.lights).forEach(lightId => {
-      if (lightInZones(this.lights[lightId].zone, zones, this.lights.length)) {
+      if (lightInZones(this.lights[lightId].zone, zones, Object.keys(this.lights).length)) {
         const lightBufferId = lightId.padStart(2, '0').split('')
 
         this.lights[lightId].brightness = brightness

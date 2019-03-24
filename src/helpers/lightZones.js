@@ -30,7 +30,7 @@ const lightInZones = (lightZone, zones, numLights) => {
     if (numLights < 4) {
       const simpleZone = zone.split('-')[0]
 
-      if (lightZone.split('0')[0] === simpleZone) {
+      if (lightZone.split('-')[0] === simpleZone) {
         inZone = true
 
         break
