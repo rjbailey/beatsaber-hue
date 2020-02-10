@@ -29,6 +29,8 @@ This program requires NodeJS to be installed on your system
 
 There are 2 lighting modes available which is defined in your `.env`; `notes` and `lighting`
 
+_HIGHLY RECOMMENDED that you use `lighting` mode_
+
 ### Notes
 
 This mode will sync your lighting with the colour of the notes you hit
@@ -79,3 +81,8 @@ If you have 2 or 3 lights in your entertainment area, we split the room up into 
 If you have lots of money and have yourself 4+ lights in your entertainment group, we split the room up into 6 sections as shown below. This is the ultimate lighting setup
 
 ![4+ light setup zones](https://github.com/Jared0430/beatsaber-hue/raw/master/more-lights.png)
+
+## Known issues/limitations
+
+- Custom colours set in the game are not recognised, if you would like to use custom colours you will have to set them manually, see *Optional configuration* section
+- Not tested with 360 levels, let me know if it works!
