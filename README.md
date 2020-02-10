@@ -10,7 +10,7 @@ This program requires NodeJS to be installed on your system
 
 ### Beat Saber Plugins
 
--  [HTTP Status](https://www.modsaber.org/mod/http-status)
+-  [HTTP Status](https://github.com/opl-/beatsaber-http-status/releases)
 
 
 ## Usage
@@ -72,10 +72,10 @@ If you only have 1 light in your entertainment area, it doesn't matter where you
 
 If you have 2 or 3 lights in your entertainment area, we split the room up into 3 sections; left, center and right as shown in the below image. Place your lights in the zones you want them to use
 
-![2-3 light setup zones](https://raw.githubusercontent.com/Jared0430/beatsaber-hue/master/3-lights.png)
+![2-3 light setup zones](https://github.com/Jared0430/beatsaber-hue/raw/master/3-lights.png)
 
 ### 4+ Light Setup
 
 If you have lots of money and have yourself 4+ lights in your entertainment group, we split the room up into 6 sections as shown below. This is the ultimate lighting setup
 
-![4+ light setup zones](https://raw.githubusercontent.com/Jared0430/beatsaber-hue/master/more-lights.png)
+![4+ light setup zones](https://github.com/Jared0430/beatsaber-hue/raw/master/more-lights.png)
